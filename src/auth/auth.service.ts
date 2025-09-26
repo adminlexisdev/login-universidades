@@ -67,7 +67,21 @@ export class AuthService {
   createToken(user: AuthenticatedUser): string {
     const { client_id, user_name, service } = user;
 
-    return this.jwtService.sign({ client_id, user_name, service });
+    const payload: Record<string, unknown> = {
+      data: {
+        usuNombre: user_name,
+        ...(service
+          ? {
+              service,
+              services: [service],
+            }
+          : {}),
+      },
+      user_name: client_id,
+      client_id: service,
+    };
+
+    return this.jwtService.sign(payload);
   }
 
   getSessionTtlSeconds(): number {
