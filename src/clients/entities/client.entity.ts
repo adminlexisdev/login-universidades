@@ -27,6 +27,9 @@ export class Client {
   @Column({ name: 'cli_concurrency_limit', type: 'int', default: 1 })
   cliConcurrencyLimit: number;
 
+  @Column({ name: 'cli_cuenta', nullable: false })
+  cliCuenta: string;
+
   @OneToMany(() => ClientSession, (s) => s.client)
   sessions?: ClientSession[];
 
