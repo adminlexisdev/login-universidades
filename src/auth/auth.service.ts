@@ -1,9 +1,20 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { SamlUser } from './interfaces/saml-user.interface';
 import { AuthenticatedUser } from './interfaces/authenticated-user.interface';
 import { ClientSessionsService } from '../clients/services/client-sessions.service';
 import { ClientSession } from '../clients/entities/client-session.entity';
+import {
+  UeaJwtPayload,
+  UeaValidateFail,
+  UeaValidateResponse,
+} from './interfaces/uea-auth.interface';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +38,16 @@ export class AuthService {
     };
   }
 
+  mapUeaUserFromToken(token: string): AuthenticatedUser {
+    const payload = this.jwtService.decode(token) as UeaJwtPayload | null;
+    if (!payload?.userId || !payload?.name) {
+      throw new UnprocessableEntityException(
+        'No se pudo obtener userId y name desde el token UEA',
+      );
+    }
+    return { client_id: payload.userId, user_name: payload.name };
+  }
+
   private resolveClientDomain(clientIdentifier: string): string {
     if (!clientIdentifier) {
       throw new BadRequestException(
@@ -35,7 +56,20 @@ export class AuthService {
     }
 
     const [, domain] = clientIdentifier.split('@');
-    return (domain ?? clientIdentifier).toLowerCase();
+    const rawDomain = (domain ?? clientIdentifier).toLowerCase();
+
+    const suffixAliases: Array<{ suffix: string; target: string }> = [
+      { suffix: '.uhemisferios.edu.ec', target: 'uhemisferios.edu.ec' },
+    ];
+
+    const suffixMatch = suffixAliases.find(({ suffix }) =>
+      rawDomain.endsWith(suffix),
+    );
+    if (suffixMatch) {
+      return suffixMatch.target;
+    }
+
+    return rawDomain;
   }
 
   async createSession(
@@ -47,9 +81,10 @@ export class AuthService {
     activeSessions: number;
     limit: number;
     cliService: string;
+    cliCuenta: string;
   }> {
     const clientDomain = this.resolveClientDomain(clientIdentifier);
-    const { session, activeSessions, limit, cliService, domain } =
+    const { session, activeSessions, limit, cliService, domain, cliCuenta } =
       await this.clientSessionsService.createSessionForClient(
         clientDomain,
         userId,
@@ -61,24 +96,26 @@ export class AuthService {
       activeSessions,
       limit,
       cliService,
+      cliCuenta,
     };
   }
 
   createToken(user: AuthenticatedUser): string {
-    const { client_id, user_name, service } = user;
+    const { client_id, user_name, service, cuenta } = user;
 
     const payload: Record<string, unknown> = {
       data: {
         usuNombre: user_name,
-        ...(service
-          ? {
-              service,
-              services: [service],
-            }
-          : {}),
+        authorities: ['ROLE_USUARIO'],
+        service: service,
+        cuenta: cuenta,
+        services: [service],
       },
       user_name: client_id,
       client_id: service,
+      scope: ['read'],
+      authorities: ['ROLE_USUARIO'],
+      jti: '',
     };
 
     return this.jwtService.sign(payload);
@@ -86,5 +123,34 @@ export class AuthService {
 
   getSessionTtlSeconds(): number {
     return this.clientSessionsService.getSessionTtlSeconds();
+  }
+
+  async validateUeaTokenRemoto(token: string): Promise<void> {
+    const url = new URL(process.env.UEA_VALIDATE_URL);
+    url.searchParams.set('token', token);
+
+    let json: UeaValidateResponse;
+    try {
+      const validate = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${process.env.UEA_TOKEN}`,
+        },
+      });
+      if (!validate.ok) {
+        throw new Error(`UEA validate HTTP ${validate.status}`);
+      }
+      json = (await validate.json()) as UeaValidateResponse;
+    } catch {
+      throw new ServiceUnavailableException(
+        'No se pudo validar el token con UEA',
+      );
+    }
+
+    if (!json?.success || !json?.valid) {
+      const msg = (json as UeaValidateFail)?.message ?? 'Token inválido (UEA)';
+      throw new UnauthorizedException(msg);
+    }
   }
 }

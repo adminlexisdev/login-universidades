@@ -46,6 +46,7 @@ export class ClientSessionsService {
     limit: number;
     cliService: string;
     domain: string;
+    cliCuenta: string;
   }> {
     return this.dataSource.transaction(async (manager) => {
       const now = new Date();
@@ -103,6 +104,7 @@ export class ClientSessionsService {
           limit: client.cliConcurrencyLimit,
           cliService: client.cliService,
           domain: client.cliDomain,
+          cliCuenta: client.cliCuenta,
         };
       }
 
@@ -130,6 +132,7 @@ export class ClientSessionsService {
         limit: client.cliConcurrencyLimit,
         cliService: client.cliService,
         domain: client.cliDomain,
+        cliCuenta: client.cliCuenta,
       };
     });
   }
