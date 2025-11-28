@@ -6,6 +6,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://uea.lexis.com.ec',
+      'https://servicioenlinea.ug.edu.ec',
       'http://localhost:3000',
       'http://localhost:3002',
     ],

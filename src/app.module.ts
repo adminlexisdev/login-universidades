@@ -25,4 +25,4 @@ import { getTypeOrmConfig } from './config/database/db.config';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
