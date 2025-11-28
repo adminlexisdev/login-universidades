@@ -7,6 +7,7 @@ import { SamlStrategy } from './strategies/saml.strategy';
 import { ClientsModule } from '../clients/clients.module';
 import { UgController } from './ug/ug.controller';
 import { UgService } from './ug/ug.service';
+import { UgJwtGuard } from './ug/guards/ug-jwt.guard';
 
 const jwtSecret = process.env.JWT_SECRET ?? 'change_me';
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN ?? '1h';
@@ -23,7 +24,7 @@ const jwtExpiresIn = process.env.JWT_EXPIRES_IN ?? '1h';
     ClientsModule,
   ],
   controllers: [AuthController, UgController],
-  providers: [AuthService, SamlStrategy, UgService],
+  providers: [AuthService, SamlStrategy, UgService, UgJwtGuard],
   exports: [JwtModule],
 })
-export class AuthModule { }
+export class AuthModule {}
