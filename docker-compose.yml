@@ -1,0 +1,14 @@
+services:
+  test-universidad:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      no_cache: true   # 🔥 Fuerza build sin caché
+    container_name: test-universidad
+    env_file:
+      - .env
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+    restart: always
